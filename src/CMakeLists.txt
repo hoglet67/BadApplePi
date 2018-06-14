@@ -76,34 +76,15 @@ file( GLOB core_files
     rpi-mailbox-interface.c
     rpi-mailbox-interface.h
     tube.S
-    tube-ula.c
-    programs.c
-    programs.h
     info.c
     info.h
     performance.c
     performance.h
-    tubevc.c
-    tubevc.h
     logging.c
     logging.h
     utils.c
     utils.h
 )
-
-# 6502 Co Processor using 65tube Implementation
-file( GLOB copro_65tube_files
-    copro-65tube.h
-    copro-65tube.c
-    copro-65tubeasm.S
-)
-
-# Shared 6502 files
-file( GLOB shared_6502_files
-    tuberom_6502.h
-    tuberom_6502.c
-)
-
 
 if( ${DEBUG} )
 
@@ -115,8 +96,6 @@ set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DMINIMAL_BUILD=1" )
 
 add_executable( tube-client
   ${core_files}
-  ${copro_65tube_files}
-  ${shared_6502_files}
   )
     
 target_link_libraries (tube-client m)

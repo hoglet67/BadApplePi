@@ -3,8 +3,11 @@
 #include "rpi-gpio.h"
 #include "rpi-interrupts.h"
 #include "tube-defs.h"
-#include "tube-ula.h"
 #include "startup.h"
+
+int tube_is_rst_active() {
+   return ((RPI_GpioBase->GPLEV0 & NRST_MASK) == 0) ;
+}
 
 // From here: https://www.raspberrypi.org/forums/viewtopic.php?f=72&t=53862
 void reboot_now(void)
