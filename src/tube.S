@@ -57,18 +57,31 @@ tube:
         pld      [r1]
         pld      [r1, #0x20]
 
+        ldr     r8, =GPFSEL0           // stop driving the data base
+        str     r5, [r8]      
+        str     r6, [r8, #4]
+        str     r7, [r8, #8]
+
+        ldr     r8, =GPCLR0            // return to the idle value
+        str     r12, [r8]
+   
+
 load_loop:
 
         ldrb     r10, [r0], #1          // load the next word to be output
 
-        ldr     r8, =GPLEV0
    
         mov     r11, r10, LSL #D0_BASE  // low nibble now aligned to GPIO
         and     r11, r11, #D30_MASK
         mov     r10, r10, LSL #D4_BASE-4
-        and     r10, r10, #D74_MASK      // high nibble in the right place
+        and     r10, r10, #D74_MASK     // high nibble in the right place
         orr     r10, r10, r11
+        ldr     r8, =GPSET0             // prepare the value to drive
+        str     r10, [r8]
+   
 
+        ldr     r8, =GPLEV0
+   
         pld      [r1, #0x20]
         add      r1, r1, #1
 
@@ -96,9 +109,6 @@ rd_wait_for_phi2_high:
         str     r3, [r8, #4]
         str     r4, [r8, #8]
 
-        ldr     r8, =GPSET0            // drive the correct value
-        str     r10, [r8]
-   
         ldr     r8, =GPLEV0
 rd_wait_for_phi2_low:
         ldr     r9, [r8]
