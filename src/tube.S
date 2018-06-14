@@ -19,98 +19,100 @@ arm_irq_handler:
 
 
    // register usage
-   // r0 = video start
-   // r1 = video end
-   
-   // r2 = memory address
-   // r3 = preload memory address
+   // r0 = memory address
+   // r1 = preload memory address
 
+   // r2  = gpfsel_data_driving[0] 
+   // r3  = gpfsel_data_driving[1]
+   // r4  = gpfsel_data_driving[2]
+   // r5  = gpfsel_data_idle[0] 
+   // r6  = gpfsel_data_idle[1] 
+   // r7  = gpfsel_data_idle[2] 
+   // r8  = register address
+   // r9  = register read data
+   // r10 = memory data
+   // r11 = working
+   // r12 = (0xF<<D0D3_shift) + (0xF<<D4D7_shift) constant
 
-
-
-   // r8
-   // r10 = data read from memory
-   
-
-
-   
    
 tube: 
 
-   // r0 is the start of the bad apple video
-   // r1 is the end of the bad apple video
+        ldr     r0, =_binary_bad_apple_bin_start
 
-        mov     r2, r0
-        mov     r3, r0
 
-        pld      [r3]
-        pld      [r3, #0x20]
+        ldr     r8, =(gpfsel_data_driving)
+        ldr     r2, [r8]
+        ldr     r3, [r8, #4]
+        ldr     r4, [r8, #8]
+
+        ldr     r8, =(gpfsel_data_idle)
+        ldr     r5, [r8]
+        ldr     r6, [r8, #4]
+        ldr     r7, [r8, #8]
+
+        mov     r12, #D30_MASK
+        orr     r12, #D74_MASK
+   
+//        mov       r1, r0   
+//        pld      [r1]
+//        pld      [r1, #0x20]
 
 load_loop:
 
-        ldrb     r10, [r2], #1          // load the next word to be output
-
-        pld      [r3, #0x20]
-        add      r3, r3, #1
+        ldrb     r10, [r0], #1          // load the next word to be output
 
         ldr     r8, =GPLEV0
    
-poll_loop:
-   
-        ldr     r9, [r8]
-        tst     r9, #NTUBE_MASK         // test for nTube going low
-        bne     poll_loop
-
-        ldr     r9, [r8]
-        tst     r9, #NTUBE_MASK         // test again for glitches
-        bne     poll_loop
-   
-        tst     r9, #RNW_MASK           // reset on writes
-        beq     tube
-
-// READ_CYCLE
-   
-        // for now return r10  
-
         mov     r11, r10, LSL #D0_BASE  // low nibble now aligned to GPIO
         and     r11, r11, #D30_MASK
         mov     r10, r10, LSL #D4_BASE-4
         and     r10, r10, #D74_MASK      // high nibble in the right place
         orr     r10, r10, r11
 
-        ldr     r8, =GPSET0
-        str     r10, [r8]
-        eor     r10, r10, #D30_MASK
-        eor     r10, r10, #D74_MASK
-        ldr     r8, =GPCLR0
-        str     r10, [r8]
+//        pld      [r1, #0x20]
+//        add      r1, r1, #1
 
-        ldr     r8, =GPFSEL0
-        ldr     r11, =(gpfsel_data_driving)
-        ldr     r10, [r11]
-        str     r10, [r8]
-        ldr     r10, [r11, #4]
-        str     r10, [r8, #4]
-        ldr     r10, [r11, #8]
-        str     r10, [r8, #8]
-
-        ldr     r8, =GPLEV0
 
 rd_wait_for_phi2_low:
-        ldr     r10, [r8]
-        tst     r10, #PHI2_MASK
-        movne   r9, r10
+        ldr     r9, [r8]
+        tst     r9, #PHI2_MASK
         bne     rd_wait_for_phi2_low
 
-        ldr     r8, =GPFSEL0
-        ldr     r11, =(gpfsel_data_idle)
-        ldr     r10, [r11]
-        str     r10, [r8]
-        ldr     r10, [r11, #4]
-        str     r10, [r8, #4]
-        ldr     r10, [r11, #8]
-        str     r10, [r8, #8]
+rd_wait_for_phi2_high:
+        ldr     r9, [r8]
+        tst     r9, #PHI2_MASK
+        beq     rd_wait_for_phi2_high
 
+        tst     r9, #NTUBE_MASK         // test for nTube going low
+        bne     rd_wait_for_phi2_low   
+
+        tst     r9, #RNW_MASK           // reset on writes
+        beq     tube
+
+   // READ_CYCLE
+
+        ldr     r8, =GPFSEL0           // start driving the data bus
+        str     r2, [r8]      
+        str     r3, [r8, #4]
+        str     r4, [r8, #8]
+
+        ldr     r8, =GPSET0            // drive the correct value
+        str     r10, [r8]
+   
+        ldr     r8, =GPLEV0
+rd_wait_for_phi2_low2:
+        ldr     r9, [r8]
+        tst     r9, #PHI2_MASK
+        bne     rd_wait_for_phi2_low2
+
+        ldr     r8, =GPFSEL0           // stop driving the data base
+        str     r5, [r8]      
+        str     r6, [r8, #4]
+        str     r7, [r8, #8]
+
+        ldr     r8, =GPCLR0            // return to the idle value
+        str     r12, [r8]
+   
         b       load_loop
 
 
