@@ -54,9 +54,17 @@ tube:
         mov     r12, #D30_MASK
         orr     r12, #D74_MASK
 
-        // Start of the video data
+
+
+
+        // Warm up the TLB
         ldr     r0, =_binary_bad_apple_bin_start
-//        ldr     r0, =test_data
+tlb_loop:   
+        ldr     r1, [r0]
+        add     r0, r0, #0x00100000
+        cmp     r0, #0x04000000
+        blt     tlb_loop
+
    
         // Warm up the cache
         pld     [r0, #0x00]
@@ -64,6 +72,12 @@ tube:
         pld     [r0, #0x40]
         pld     [r0, #0x60]
 
+
+        // Start of the video data
+        ldr     r0, =_binary_bad_apple_bin_start
+//        ldr     r0, =test_data
+   
+   
         // Place the data bus in the idle state
         str     r5,  [r8, #OFFSET_GPFSEL0 + 0]      
         str     r6,  [r8, #OFFSET_GPFSEL0 + 4]
