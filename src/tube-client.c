@@ -11,6 +11,10 @@
 #include "info.h"
 #include "rpi-gpio.h"
 
+extern const char _binary_bad_apple_bin_start;
+extern const char _binary_bad_apple_bin_end;
+extern const int  _binary_bad_apple_bin_size;
+
 static uint32_t host_addr_bus;
 
 static int led_type=0;
@@ -26,14 +30,25 @@ typedef void (*func_ptr)();
 
 int test_pin;
 
-extern int tube();
+extern int tube(const char *start, const char *end);
 
 void init_emulator() {
    _disable_interrupts();
    
    LOG_DEBUG("Bad Apple Pi\r\n");
 
-   tube();
+   LOG_DEBUG("Start: %8p\r\n", &_binary_bad_apple_bin_start);
+   LOG_DEBUG("End:   %8p\r\n", &_binary_bad_apple_bin_end);
+   for (int i = 0; i < 1024; i++) {
+      if ((i & 15) == 0) {
+         printf("%04x : ", i);
+      }
+      printf("%02x ", *((&_binary_bad_apple_bin_start) + i));
+      if ((i & 15) == 15) {
+         printf("\r\n");
+      }
+   }
+   tube(&_binary_bad_apple_bin_start, &_binary_bad_apple_bin_end);
 
    LOG_DEBUG("Halted\r\n");
    

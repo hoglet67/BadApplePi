@@ -18,34 +18,58 @@ arm_irq_handler:
       subs    pc, lr, #4
 
 
-tube: 
+   // register usage
+   // r0 = video start
+   // r1 = video end
+   
+   // r2 = memory address
+   // r3 = preload memory address
 
+
+
+
+   // r8
+   // r10 = data read from memory
    
 
-loop:
+
+   
+   
+tube: 
+
+   // r0 is the start of the bad apple video
+   // r1 is the end of the bad apple video
+
+        mov     r2, r0
+        mov     r3, r0
+
+        pld      [r3]
+        pld      [r3, #0x20]
+
+load_loop:
+
+        ldrb     r10, [r2], #1          // load the next word to be output
+
+        pld      [r3, #0x20]
+        add      r3, r3, #1
 
         ldr     r8, =GPLEV0
    
+poll_loop:
+   
         ldr     r9, [r8]
         tst     r9, #NTUBE_MASK         // test for nTube going low
-        bne     loop
+        bne     poll_loop
 
         ldr     r9, [r8]
         tst     r9, #NTUBE_MASK         // test again for glitches
-        bne     loop
+        bne     poll_loop
    
-        tst     r9, #RNW_MASK           // ignore writes
-        beq     loop
+        tst     r9, #RNW_MASK           // reset on writes
+        beq     tube
 
 // READ_CYCLE
-        mov     r10, #0
-        tst     r9, #A0_MASK
-        orrne   r10, #1
-        tst     r9, #A1_MASK
-        orrne   r10, #2
-        tst     r9, #A2_MASK
-        orrne   r10, #4
-
+   
         // for now return r10  
 
         mov     r11, r10, LSL #D0_BASE  // low nibble now aligned to GPIO
@@ -87,7 +111,7 @@ rd_wait_for_phi2_low:
         ldr     r10, [r11, #8]
         str     r10, [r8, #8]
 
-        b       loop
+        b       load_loop
 
 
 // Some constants for controlling the data bus
@@ -101,4 +125,16 @@ gpfsel_data_driving:
         .word 0
         .word 0
 
+        .ltorg
+
+.data
+   
+.global _binary_bad_apple_bin_start
+.global _binary_bad_apple_bin_end
+
+.align 12
+
+_binary_bad_apple_bin_start:
+.incbin "../bad_apple.bin"
+_binary_bad_apple_bin_end:
 
