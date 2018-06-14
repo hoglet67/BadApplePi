@@ -5,7 +5,7 @@
 
 #define RELEASENAME "EggEater-rc0"
 
-#define DEBUG
+#define NDEBUG
 
 #ifdef DEBUG
 #define LOG_DEBUG(...) printf(__VA_ARGS__)
