@@ -22,8 +22,6 @@ extern int test_pin;
 
 #include "copro-65tube.h"
 
-#ifdef MINIMAL_BUILD
-
 #ifdef DEBUG
 static const char * emulator_names[] = {
    "65C02 (65tube)"
@@ -33,68 +31,6 @@ static const char * emulator_names[] = {
 static const func_ptr emulator_functions[] = {
    copro_65tube_emulator
 };
-
-#else
-
-#include "copro-lib6502.h"
-#include "copro-80186.h"
-#include "copro-arm2.h"
-#include "copro-32016.h"
-#include "copro-null.h"
-#include "copro-z80.h"
-#include "copro-mc6809nc.h"
-#include "copro-opc5ls.h"
-#include "copro-opc6.h"
-#include "copro-opc7.h"
-#include "copro-pdp11.h"
-#include "copro-armnative.h"
-
-#ifdef DEBUG
-static const char * emulator_names[] = {
-   "65C02 (65tube)",
-   "65C02 (65tube)",
-   "65C02 (lib6502)",
-   "65C02 (lib6502)",
-   "Z80",
-   "OPC5LS",
-   "OPC6",
-   "OPC7",
-   "80286",
-   "MC6809",
-   "Null",
-   "PDP-11",
-   "ARM2",
-   "32016",
-   "Null",
-   "ARM Native"
-};
-#endif
-
-static const func_ptr emulator_functions[] = {
-   copro_65tube_emulator,
-   copro_65tube_emulator,
-#if 1   
-   copro_lib6502_emulator,
-   copro_lib6502_emulator,
-#else
-   copro_65tube_emulator,
-   copro_65tube_emulator,
-#endif
-   copro_z80_emulator,
-   copro_opc5ls_emulator,
-   copro_opc6_emulator,
-   copro_opc7_emulator,
-   copro_80186_emulator,
-   copro_mc6809nc_emulator,
-   copro_null_emulator,
-   copro_pdp11_emulator,
-   copro_arm2_emulator,
-   copro_32016_emulator,
-   copro_null_emulator,
-   copro_armnative_emulator
-};
-
-#endif
 
 volatile unsigned int copro;
 volatile unsigned int copro_speed;
@@ -253,13 +189,97 @@ static void get_tube_delay() {
    LOG_DEBUG("Tube ULA sample delay  %u\r\n", tube_delay);
 }
 
+
+static uint32_t host_addr_bus;
+static int led_type=0;
+
+void init_hardware()
+{
+
+  // early 26pin pins have a slightly different pin out
+  
+  switch (get_revision())
+  {
+     case 2 :
+     case 3 :   
+          // Write 1 to the LED init nibble in the Function Select GPIO
+          // peripheral register to enable LED pin as an output
+          RPI_GpioBase-> GPFSEL[1] |= 1<<18;
+          host_addr_bus = (A2_PIN_26PIN << 16) | (A1_PIN_26PIN << 8) | (A0_PIN_26PIN); // address bus GPIO mapping
+          RPI_SetGpioPinFunction(A2_PIN_26PIN, FS_INPUT);
+          RPI_SetGpioPinFunction(A1_PIN_26PIN, FS_INPUT);
+          RPI_SetGpioPinFunction(A0_PIN_26PIN, FS_INPUT);
+          RPI_SetGpioPinFunction(TEST_PIN_26PIN, FS_OUTPUT);
+          test_pin = TEST_PIN_26PIN;
+        break;
+     
+         
+     default :
+
+          host_addr_bus = (A2_PIN_40PIN << 16) | (A1_PIN_40PIN << 8) | (A0_PIN_40PIN); // address bus GPIO mapping
+          RPI_SetGpioPinFunction(A2_PIN_40PIN, FS_INPUT);
+          RPI_SetGpioPinFunction(A1_PIN_40PIN, FS_INPUT);
+          RPI_SetGpioPinFunction(A0_PIN_40PIN, FS_INPUT); 
+          RPI_SetGpioPinFunction(TEST_PIN_40PIN, FS_OUTPUT);
+          RPI_SetGpioPinFunction(TEST2_PIN, FS_OUTPUT);
+          RPI_SetGpioPinFunction(TEST3_PIN, FS_OUTPUT);
+          test_pin = TEST_PIN_40PIN;         
+       break;   
+  }
+  
+  switch (get_revision())
+  {
+     case 2 :
+     case 3 :   led_type = 0;
+         break;
+     case 0xa02082: // Rpi3
+     case 0xa22082:
+     case 0xa32082:
+         led_type = 2;
+         break;
+     case 0xa020d3 : // rpi3b+
+         led_type = 3;
+         RPI_GpioBase-> GPFSEL[2] |= 1<<27;
+         break;
+     default :
+               // Write 1 to the LED init nibble in the Function Select GPIO
+          // peripheral register to enable LED pin as an output  
+          RPI_GpioBase-> GPFSEL[4] |= 1<<21;
+          led_type = 1;
+         break;
+  }        
+  
+  // Configure our pins as inputs
+  RPI_SetGpioPinFunction(D7_PIN, FS_INPUT);
+  RPI_SetGpioPinFunction(D6_PIN, FS_INPUT);
+  RPI_SetGpioPinFunction(D5_PIN, FS_INPUT);
+  RPI_SetGpioPinFunction(D4_PIN, FS_INPUT);
+  RPI_SetGpioPinFunction(D3_PIN, FS_INPUT);
+  RPI_SetGpioPinFunction(D2_PIN, FS_INPUT);
+  RPI_SetGpioPinFunction(D1_PIN, FS_INPUT);
+  RPI_SetGpioPinFunction(D0_PIN, FS_INPUT);
+
+  RPI_SetGpioPinFunction(PHI2_PIN, FS_INPUT);
+  RPI_SetGpioPinFunction(NTUBE_PIN, FS_INPUT);
+  RPI_SetGpioPinFunction(NRST_PIN, FS_INPUT);
+  RPI_SetGpioPinFunction(RNW_PIN, FS_INPUT);
+
+  // Initialise the info system with cached values (as we break the GPU property interface)
+  init_info();
+
+#ifdef DEBUG
+  dump_useful_info();
+#endif
+  
+}
+
 void kernel_main(unsigned int r0, unsigned int r1, unsigned int atags)
 {
      // Initialise the UART to 57600 baud
    RPI_AuxMiniUartInit( 115200, 8 );
    enable_MMU_and_IDCaches();
    _enable_unaligned_access();
-   tube_init_hardware();
+   init_hardware();
 
    arm_speed = get_clock_rate(ARM_CLK_ID);
    get_tube_delay();
