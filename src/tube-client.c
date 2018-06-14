@@ -11,21 +11,33 @@
 #include "info.h"
 #include "rpi-gpio.h"
 
+static uint32_t host_addr_bus;
+
+static int led_type=0;
+
+extern volatile uint32_t gpfsel_data_idle[3];
+
+extern volatile uint32_t gpfsel_data_driving[3];
+
+const uint32_t magic[3] = {MAGIC_C0, MAGIC_C1, MAGIC_C2 | MAGIC_C3 };
+
+
 typedef void (*func_ptr)();
 
 int test_pin;
+
+extern int tube();
 
 void init_emulator() {
    _disable_interrupts();
    
    LOG_DEBUG("Bad Apple Pi\r\n");
 
+   tube();
 
-   while (1);
-
-
+   LOG_DEBUG("Halted\r\n");
    
-   _enable_interrupts();
+   while (1);
 }
 
 #ifdef HAS_MULTICORE
@@ -59,10 +71,6 @@ static void start_core(int core, func_ptr func) {
    *(unsigned int *)(0x4000008C + 0x10 * core) = (unsigned int) func;
 }
 #endif
-
-
-static uint32_t host_addr_bus;
-static int led_type=0;
 
 void init_hardware()
 {
@@ -119,6 +127,12 @@ void init_hardware()
           led_type = 1;
          break;
   }        
+
+  for (int i = 0; i < 3; i++) {
+     gpfsel_data_idle[i] = (uint32_t) RPI_GpioBase->GPFSEL[i];
+     gpfsel_data_driving[i] = gpfsel_data_idle[i] | magic[i];
+     printf("%d %010o %010o\r\n", i, (unsigned int) gpfsel_data_idle[i], (unsigned int) gpfsel_data_driving[i]);
+  }
   
   // Configure our pins as inputs
   RPI_SetGpioPinFunction(D7_PIN, FS_INPUT);
