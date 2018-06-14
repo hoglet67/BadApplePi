@@ -57,6 +57,7 @@
 
 #ifdef __ASSEMBLER__
 
+#define GPBASE  (PERIPHERAL_BASE + 0x200000)
 #define GPFSEL0 (PERIPHERAL_BASE + 0x200000)  // controls GPIOs 0..9
 #define GPFSEL1 (PERIPHERAL_BASE + 0x200004)  // controls GPIOs 10..19
 #define GPFSEL2 (PERIPHERAL_BASE + 0x200008)  // controls GPIOs 20..29

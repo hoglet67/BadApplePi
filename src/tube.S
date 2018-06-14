@@ -28,47 +28,52 @@ arm_irq_handler:
    // r5  = gpfsel_data_idle[0] 
    // r6  = gpfsel_data_idle[1] 
    // r7  = gpfsel_data_idle[2] 
-   // r8  = register address
+   // r8  = GPBASE
    // r9  = register read data
    // r10 = memory data
    // r11 = working
    // r12 = (0xF<<D0D3_shift) + (0xF<<D4D7_shift) constant
-
+   
+#define OFFSET_GPLEV0   (GPLEV0 - GPBASE)
+#define OFFSET_GPSET0   (GPSET0 - GPBASE)
+#define OFFSET_GPCLR0   (GPCLR0 - GPBASE)
+#define OFFSET_GPFSEL0  (GPFSEL0 - GPBASE)
    
 tube: 
 
-        ldr     r0, =_binary_bad_apple_bin_start
-
-
-        ldr     r8, =(gpfsel_data_driving)
-        ldr     r2, [r8]
-        ldr     r3, [r8, #4]
-        ldr     r4, [r8, #8]
-
-        ldr     r8, =(gpfsel_data_idle)
-        ldr     r5, [r8]
-        ldr     r6, [r8, #4]
-        ldr     r7, [r8, #8]
-
+        // Load constants
+        ldr     r0, =(gpfsel_data_driving)
+        ldr     r2, [r0]
+        ldr     r3, [r0, #4]
+        ldr     r4, [r0, #8]
+        ldr     r0, =(gpfsel_data_idle)
+        ldr     r5, [r0]
+        ldr     r6, [r0, #4]
+        ldr     r7, [r0, #8]
+        ldr     r8, =GPBASE
         mov     r12, #D30_MASK
         orr     r12, #D74_MASK
+
+        // Start of the video data
+        ldr     r0, =_binary_bad_apple_bin_start
    
-        mov       r1, r0   
-        pld      [r1]
-        pld      [r1, #0x20]
+        // Warm up the cache
+        mov     r1, r0   
+        pld     [r1]
+        pld     [r1, #0x20]
 
-        ldr     r8, =GPFSEL0           // stop driving the data base
-        str     r5, [r8]      
-        str     r6, [r8, #4]
-        str     r7, [r8, #8]
-
-        ldr     r8, =GPCLR0            // return to the idle value
-        str     r12, [r8]
+        // Place the data bus in the idle state
+        str     r5,  [r8, #OFFSET_GPFSEL0 + 0]      
+        str     r6,  [r8, #OFFSET_GPFSEL0 + 4]
+        str     r7,  [r8, #OFFSET_GPFSEL0 + 8]
+        str     r12, [r8, #OFFSET_GPCLR0]
    
-
 load_loop:
 
-        ldrb     r10, [r0], #1          // load the next word to be output
+        // preload next cache line
+        ldrb    r1, [r0, #0x20]
+   
+        ldrb    r10, [r0], #1          // load the next word to be output
 
    
         mov     r11, r10, LSL #D0_BASE  // low nibble now aligned to GPIO
@@ -76,23 +81,16 @@ load_loop:
         mov     r10, r10, LSL #D4_BASE-4
         and     r10, r10, #D74_MASK     // high nibble in the right place
         orr     r10, r10, r11
-        ldr     r8, =GPSET0             // prepare the value to drive
-        str     r10, [r8]
-   
-
-        ldr     r8, =GPLEV0
-   
-        pld      [r1, #0x20]
-        add      r1, r1, #1
-
+        str     r10, [r8, #OFFSET_GPSET0]
 
 //rd_wait_for_phi2_low:
 //        ldr     r9, [r8]
 //        tst     r9, #PHI2_MASK
 //        bne     rd_wait_for_phi2_low
 
+        // wait for phi2 to go high
 rd_wait_for_phi2_high:
-        ldr     r9, [r8]
+        ldr     r9, [r8, #OFFSET_GPLEV0]
         tst     r9, #PHI2_MASK
         beq     rd_wait_for_phi2_high
 
@@ -101,33 +99,29 @@ rd_wait_for_phi2_high:
 
         tst     r9, #RNW_MASK           // reset on writes
         beq     tube
+   
+        // start driving the data bus
+        str     r2, [r8, #OFFSET_GPFSEL0 + 0]
+        str     r3, [r8, #OFFSET_GPFSEL0 + 4]
+        str     r4, [r8, #OFFSET_GPFSEL0 + 8]
 
-   // READ_CYCLE
-
-        ldr     r8, =GPFSEL0           // start driving the data bus
-        str     r2, [r8]      
-        str     r3, [r8, #4]
-        str     r4, [r8, #8]
-
-        ldr     r8, =GPLEV0
+        // wait for phi2 to fall
 rd_wait_for_phi2_low:
-        ldr     r9, [r8]
+        ldr     r9, [r8, #OFFSET_GPLEV0]
         tst     r9, #PHI2_MASK
         bne     rd_wait_for_phi2_low
 
-        ldr     r8, =GPFSEL0           // stop driving the data base
-        str     r5, [r8]      
-        str     r6, [r8, #4]
-        str     r7, [r8, #8]
-
-        ldr     r8, =GPCLR0            // return to the idle value
-        str     r12, [r8]
+        // stop driving the data bus
+        str     r5,  [r8, #OFFSET_GPFSEL0 + 0]      
+        str     r6,  [r8, #OFFSET_GPFSEL0 + 4]
+        str     r7,  [r8, #OFFSET_GPFSEL0 + 8]
+        str     r12, [r8, #OFFSET_GPCLR0]
    
         b       load_loop
 
 
 rd_wait_for_phi2_low2:
-        ldr     r9, [r8]
+        ldr     r9, [r8, #OFFSET_GPLEV0]
         tst     r9, #PHI2_MASK
         bne     rd_wait_for_phi2_low2
         b       rd_wait_for_phi2_high
