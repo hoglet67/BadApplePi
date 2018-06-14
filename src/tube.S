@@ -53,9 +53,9 @@ tube:
         mov     r12, #D30_MASK
         orr     r12, #D74_MASK
    
-//        mov       r1, r0   
-//        pld      [r1]
-//        pld      [r1, #0x20]
+        mov       r1, r0   
+        pld      [r1]
+        pld      [r1, #0x20]
 
 load_loop:
 
@@ -69,14 +69,14 @@ load_loop:
         and     r10, r10, #D74_MASK      // high nibble in the right place
         orr     r10, r10, r11
 
-//        pld      [r1, #0x20]
-//        add      r1, r1, #1
+        pld      [r1, #0x20]
+        add      r1, r1, #1
 
 
-rd_wait_for_phi2_low:
-        ldr     r9, [r8]
-        tst     r9, #PHI2_MASK
-        bne     rd_wait_for_phi2_low
+//rd_wait_for_phi2_low:
+//        ldr     r9, [r8]
+//        tst     r9, #PHI2_MASK
+//        bne     rd_wait_for_phi2_low
 
 rd_wait_for_phi2_high:
         ldr     r9, [r8]
@@ -84,7 +84,7 @@ rd_wait_for_phi2_high:
         beq     rd_wait_for_phi2_high
 
         tst     r9, #NTUBE_MASK         // test for nTube going low
-        bne     rd_wait_for_phi2_low   
+        bne     rd_wait_for_phi2_low2   
 
         tst     r9, #RNW_MASK           // reset on writes
         beq     tube
@@ -100,10 +100,10 @@ rd_wait_for_phi2_high:
         str     r10, [r8]
    
         ldr     r8, =GPLEV0
-rd_wait_for_phi2_low2:
+rd_wait_for_phi2_low:
         ldr     r9, [r8]
         tst     r9, #PHI2_MASK
-        bne     rd_wait_for_phi2_low2
+        bne     rd_wait_for_phi2_low
 
         ldr     r8, =GPFSEL0           // stop driving the data base
         str     r5, [r8]      
@@ -116,6 +116,14 @@ rd_wait_for_phi2_low2:
         b       load_loop
 
 
+rd_wait_for_phi2_low2:
+        ldr     r9, [r8]
+        tst     r9, #PHI2_MASK
+        bne     rd_wait_for_phi2_low2
+        b       rd_wait_for_phi2_high
+
+
+   
 // Some constants for controlling the data bus
 gpfsel_data_idle:
         .word 0
