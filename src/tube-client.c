@@ -19,6 +19,11 @@ void init_emulator() {
    _disable_interrupts();
    
    LOG_DEBUG("Bad Apple Pi\r\n");
+
+
+   while (1);
+
+
    
    _enable_interrupts();
 }
