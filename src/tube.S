@@ -56,11 +56,13 @@ tube:
 
         // Start of the video data
         ldr     r0, =_binary_bad_apple_bin_start
+//        ldr     r0, =test_data
    
         // Warm up the cache
-        mov     r1, r0   
-        pld     [r1]
-        pld     [r1, #0x20]
+        pld     [r0, #0x00]
+        pld     [r0, #0x20]
+        pld     [r0, #0x40]
+        pld     [r0, #0x60]
 
         // Place the data bus in the idle state
         str     r5,  [r8, #OFFSET_GPFSEL0 + 0]      
@@ -70,12 +72,14 @@ tube:
    
 load_loop:
 
-        // preload next cache line
-        ldrb    r1, [r0, #0x20]
-   
+        //preload next cache line
+        pld     [r0, #0x20]   
         ldrb    r10, [r0], #1          // load the next word to be output
-
    
+        //tst     r0, #7
+        //subeq   r0, r0, #1
+        //biceq   r0, r0, #7
+
         mov     r11, r10, LSL #D0_BASE  // low nibble now aligned to GPIO
         and     r11, r11, #D30_MASK
         mov     r10, r10, LSL #D4_BASE-4
@@ -84,7 +88,7 @@ load_loop:
         str     r10, [r8, #OFFSET_GPSET0]
 
 //rd_wait_for_phi2_low:
-//        ldr     r9, [r8]
+//        ldr     r9, [r8, #OFFSET_GPLEV0]
 //        tst     r9, #PHI2_MASK
 //        bne     rd_wait_for_phi2_low
 
@@ -95,7 +99,7 @@ rd_wait_for_phi2_high:
         beq     rd_wait_for_phi2_high
 
         tst     r9, #NTUBE_MASK         // test for nTube going low
-        bne     rd_wait_for_phi2_low2   
+        bne     rd_wait_for_phi2_low2  
 
         tst     r9, #RNW_MASK           // reset on writes
         beq     tube
@@ -119,13 +123,11 @@ rd_wait_for_phi2_low:
    
         b       load_loop
 
-
 rd_wait_for_phi2_low2:
         ldr     r9, [r8, #OFFSET_GPLEV0]
         tst     r9, #PHI2_MASK
         bne     rd_wait_for_phi2_low2
         b       rd_wait_for_phi2_high
-
 
    
 // Some constants for controlling the data bus
@@ -146,6 +148,12 @@ gpfsel_data_driving:
 .global _binary_bad_apple_bin_start
 .global _binary_bad_apple_bin_end
 
+.align 12
+test_data:
+        .word 0xE04C00A0
+        .word 0xFEE04CFE
+test_data_end:
+   
 .align 12
 
 _binary_bad_apple_bin_start:
