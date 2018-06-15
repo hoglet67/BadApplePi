@@ -33,25 +33,22 @@ arm_fiq_handler:
 arm_irq_handler:
       subs    pc, lr, #4
 
-
    // register usage
-   // r0 = memory address
-   // r1 = preload memory address
-
-   // r2  = gpfsel_data_driving[0]
-   // r3  = gpfsel_data_driving[1]
-   // r4  = gpfsel_data_driving[2]
-   // r5  = gpfsel_data_idle[0]
-   // r6  = gpfsel_data_idle[1]
-   // r7  = gpfsel_data_idle[2]
-   // r8  = GPBASE
+   // r0  = memory address
+   // r1  = unused
+   // r2  = constant: gpfsel_data_driving[0]
+   // r3  = constant: gpfsel_data_driving[1]
+   // r4  = constant: gpfsel_data_driving[2]
+   // r5  = constant: gpfsel_data_idle[0]
+   // r6  = constant: gpfsel_data_idle[1]
+   // r7  = constant: gpfsel_data_idle[2]
+   // r8  = constant: GPBASE
    // r9  = register read data
    // r10 = memory data
    // r11 = working
-   // r12 = (0xF<<D0D3_shift) + (0xF<<D4D7_shift) constant
+   // r12 = constant: (0xF<<D0D3_shift) + (0xF<<D4D7_shift) constant
 
 tube:
-
         // Load constants
         ldr     r0, =(gpfsel_data_driving)
         ldr     r2, [r0]
@@ -65,9 +62,6 @@ tube:
         mov     r12, #D30_MASK
         orr     r12, #D74_MASK
 
-
-
-
         // Warm up the TLB
         ldr     r0, =_binary_bad_apple_bin_start
 tlb_loop:
@@ -76,13 +70,11 @@ tlb_loop:
         cmp     r0, #0x04000000
         blt     tlb_loop
 
-
         // Warm up the cache
         pld     [r0, #0x00]
         pld     [r0, #0x20]
         pld     [r0, #0x40]
         pld     [r0, #0x60]
-
 
         // Start of the video data
         ldr     r0, =_binary_bad_apple_bin_start
@@ -95,15 +87,16 @@ tlb_loop:
 
 load_loop:
 
-        //preload next cache line
+        // preload next cache line
         pld     [r0, #0x20]
-        ldrb    r10, [r0], #1           // load the next word to be output
 
-        mov     r11, r10, LSL #D0_BASE  // low nibble now aligned to GPIO
-        and     r11, r11, #D30_MASK
-        mov     r10, r10, LSL #D4_BASE-4
-        and     r10, r10, #D74_MASK     // high nibble in the right place
-        orr     r10, r10, r11
+        // load the next word to be output
+        ldrb    r10, [r0], #1
+
+        // map the data to the appropriate GPIO bits
+        mov     r11, r10, LSL #D0_BASE
+        orr     r11, r10, LSL #D4_BASE-4
+        and     r10, r11, r12
         str     r10, [r8, #OFFSET_GPSET0]
 
         // WAIT_FOR_PHI2_LOW
@@ -136,7 +129,6 @@ skip_non_tube_access:
         WAIT_FOR_PHI2_LOW
 
         b       tube_loop
-
 
 // Some constants for controlling the data bus
 gpfsel_data_idle:
