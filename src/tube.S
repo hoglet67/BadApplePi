@@ -49,6 +49,31 @@ arm_irq_handler:
    // r12 = constant: (0xF<<D0D3_shift) + (0xF<<D4D7_shift) constant
 
 tube:
+
+        // Save the address of the performance counters
+        ldr     r11, =pct
+        str     r2, [r11]
+
+restart:
+
+        // Print performance counters
+#if 0
+        push    {r0-r3}
+        ldr     r0, =pct
+        ldr     r0, [r0]
+        bl      read_performance_counters
+        pop     {r0-r3}
+        ldr     r0, =pct
+        ldr     r0, [r0]
+        bl      print_performance_counters
+        pop     {r0-r3}
+        push    {r0-r3}
+        ldr     r0, =pct
+        ldr     r0, [r0]
+        bl      reset_performance_counters
+        pop     {r0-r3}
+#endif
+
         // Load constants
         ldr     r0, =(gpfsel_data_driving)
         ldr     r2, [r0]
@@ -112,9 +137,9 @@ tube_loop:
         b       tube_loop
 
 tube_access:
-   
+
         tst     r9, #RNW_MASK           // reset on writes
-        beq     tube
+        beq     restart
 
         // start driving the data bus
         str     r2, [r8, #OFFSET_GPFSEL0 + 0]
@@ -140,6 +165,9 @@ gpfsel_data_idle:
 gpfsel_data_driving:
         .word 0
         .word 0
+        .word 0
+
+pct:
         .word 0
 
 .data

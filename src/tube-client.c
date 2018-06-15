@@ -25,12 +25,13 @@ extern volatile uint32_t gpfsel_data_driving[3];
 
 const uint32_t magic[3] = {MAGIC_C0, MAGIC_C1, MAGIC_C2 | MAGIC_C3 };
 
-
 typedef void (*func_ptr)();
 
 int test_pin;
 
-extern int tube(const char *start, const char *end);
+extern int tube(const char *start, const char *end, const perf_counters_t *pct);
+
+static perf_counters_t pct;
 
 void init_emulator() {
    _disable_interrupts();
@@ -48,7 +49,7 @@ void init_emulator() {
          printf("\r\n");
       }
    }
-   tube(&_binary_bad_apple_bin_start, &_binary_bad_apple_bin_end);
+   tube(&_binary_bad_apple_bin_start, &_binary_bad_apple_bin_end, &pct);
 
    LOG_DEBUG("Halted\r\n");
    
@@ -164,6 +165,29 @@ void init_hardware()
   RPI_SetGpioPinFunction(NRST_PIN, FS_INPUT);
   RPI_SetGpioPinFunction(RNW_PIN, FS_INPUT);
 
+  // Initialize performance counters
+#if defined(RPI2) || defined(RPI3) 
+   pct.num_counters = 6;
+   pct.type[0] = PERF_TYPE_L1I_CACHE;
+   pct.type[1] = PERF_TYPE_L1I_CACHE_REFILL;
+   pct.type[2] = PERF_TYPE_L1D_CACHE;
+   pct.type[3] = PERF_TYPE_L1D_CACHE_REFILL;
+   pct.type[4] = PERF_TYPE_L2D_CACHE_REFILL;
+   pct.type[5] = PERF_TYPE_INST_RETIRED;
+   pct.counter[0] = 0;
+   pct.counter[1] = 0;
+   pct.counter[2] = 0;
+   pct.counter[3] = 0;
+   pct.counter[4] = 0;
+   pct.counter[5] = 0;
+#else
+   pct.num_counters = 2;
+   pct.type[0] = PERF_TYPE_D_MICROTLB_MISS;
+   pct.type[1] = PERF_TYPE_MAINTLB_MISS;
+   pct.counter[0] = 0;
+   pct.counter[1] = 0;
+#endif
+  
   // Initialise the info system with cached values (as we break the GPU property interface)
   init_info();
 

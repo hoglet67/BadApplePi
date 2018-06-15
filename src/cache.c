@@ -106,7 +106,6 @@ void enable_MMU_and_IDCaches(void)
   LOG_DEBUG("enable_MMU_and_IDCaches\r\n");
   //LOG_DEBUG("cpsr    = %08x\r\n", _get_cpsr());
 
-  unsigned i;
   unsigned base;
   
   // TLB 1MB Sector Descriptor format
