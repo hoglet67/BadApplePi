@@ -96,6 +96,7 @@ const char * type_names[] = {
    "D_CACHE_MISS",
    "D_CACHE_WRITEBACK",
    "SOFTWARE_CHANGED_PC",
+   "UNDEFINED",
    "MAINTLB_MISS",
    "EXPLICIT_DATA_ACCESS",
    "FULL_LOAD_STORE_REQ_QUEUE",
