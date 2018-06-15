@@ -105,8 +105,14 @@ tube_loop:
         WAIT_FOR_PHI2_HIGH
 
         tst     r9, #NTUBE_MASK         // test for nTube going low
-        bne     skip_non_tube_access
+        beq     tube_access
 
+        WAIT_FOR_PHI2_LOW
+
+        b       tube_loop
+
+tube_access:
+   
         tst     r9, #RNW_MASK           // reset on writes
         beq     tube
 
@@ -124,11 +130,6 @@ tube_loop:
         str     r12, [r8, #OFFSET_GPCLR0]
 
         b       load_loop
-
-skip_non_tube_access:
-        WAIT_FOR_PHI2_LOW
-
-        b       tube_loop
 
 // Some constants for controlling the data bus
 gpfsel_data_idle:
