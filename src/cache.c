@@ -15,7 +15,6 @@ const static unsigned l2_cached_threshold = UNCACHED_MEM_BASE >> 20;
 const static unsigned uncached_threshold = PERIPHERAL_BASE >> 20;
    
 volatile __attribute__ ((aligned (0x4000))) unsigned int PageTable[4096];
-volatile __attribute__ ((aligned (0x4000))) unsigned int PageTable2[NUM_4K_PAGES];
 
 const static int aa = 1;
 const static int bb = 1;
@@ -101,34 +100,6 @@ void CleanDataCache (void)
 }
 #endif
 
-// TLB 4KB Section Descriptor format
-// 31..12 Section Base Address
-// 11..9        - unused, set to zero
-// 8..6   TEX   - type extension- TEX, C, B used together, see below
-// 5..4   AP    - access ctrl   - set to 11 for full access from user and super modes
-// 3      C     - cacheable     - TEX, C, B used together, see below
-// 2      B     - bufferable    - TEX, C, B used together, see below
-// 1      1
-// 0      1                     
-
-void map_4k_page(int logical, int physical) {
-  // Invalidate the data TLB before changing mapping
-  _invalidate_dtlb_mva((void *)(logical << 12));
-  // Setup the 4K page table entry
-  // Second level descriptors use extended small page format so inner/outer cacheing can be controlled 
-  // Pi 0/1:
-  //   XP (bit 23) in SCTRL is 0 so descriptors use ARMv4/5 backwards compatible format
-  // Pi 2/3:
-  //   XP (bit 23) in SCTRL no longer exists, and we see to be using ARMv6 table formats
-  //   this means bit 0 of the page table is actually XN and must be clear to allow native ARM code to execute
-  //   (this was the cause of issue #27)
-#if defined(RPI2) || defined (RPI3)
-  PageTable2[logical] = (physical<<12) | 0x132 | (bb << 6) | (aa << 2);
-#else
-  PageTable2[logical] = (physical<<12) | 0x133 | (bb << 6) | (aa << 2);
-#endif
-}
-
 void enable_MMU_and_IDCaches(void)
 {
 
@@ -181,20 +152,20 @@ void enable_MMU_and_IDCaches(void)
     // Values from RPI2 = 11C0E (outer and inner write back, write allocate, shareable (fast but unsafe)); works on RPI
     // Values from RPI2 = 10C0A (outer and inner write through, no write allocate, shareable)
     // Values from RPI2 = 15C0A (outer write back, write allocate, inner write through, no write allocate, shareable)
-    PageTable[base] = base << 20 | 0x04C02 | (shareable << 16) | (bb << 12) | (aa << 2);
+     PageTable[base] = ((base << 20) & 0xFF000000) | 0x44C02 | (shareable << 16) | (bb << 12) | (aa << 2);
   }
   for (; base < l2_cached_threshold; base++)
   {
-     PageTable[base] = base << 20 | 0x04C02 | (shareable << 16) | (bb << 12);
+     PageTable[base] = ((base << 20) & 0xFF000000) | 0x44C02 | (shareable << 16) | (bb << 12);
   }
   for (; base < uncached_threshold; base++)
   {
-    PageTable[base] = base << 20 | 0x01C02;
+    PageTable[base] = ((base << 20) & 0xFF000000) | 0x41C02;
   }
   for (; base < 4096; base++)
   {
     // shared device, never execute
-    PageTable[base] = base << 20 | 0x10C16;
+    PageTable[base] = ((base << 20) & 0xFF000000) | 0x50C16;
   }
 
   // suppress a warning as we really do want to copy from src address 0!
@@ -204,19 +175,6 @@ void enable_MMU_and_IDCaches(void)
   memcpy((void *)HIGH_VECTORS_BASE, (void *)0, 0x1000);
 #pragma GCC diagnostic pop
 
-  // replace the first N 1MB entries with second level page tables, giving N x 256 4K pages
-  for (i = 0; i < NUM_4K_PAGES >> 8; i++)
-  {
-    PageTable[i] = (unsigned int) (&PageTable2[i << 8]);
-    PageTable[i] +=1;
-  }
-
-  // populate the second level page tables  
-  for (base = 0; base < NUM_4K_PAGES; base++)
-  {
-    map_4k_page(base, base);
-  }
- 
   // relocate the vector pointer to the moved page 
   asm volatile("mcr p15, 0, %[addr], c12, c0, 0" : : [addr] "r" (HIGH_VECTORS_BASE)); 
   
