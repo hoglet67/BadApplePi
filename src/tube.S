@@ -95,12 +95,6 @@ tlb_loop:
         cmp     r0, #0x04000000
         blt     tlb_loop
 
-        // Warm up the cache
-        pld     [r0, #0x00]
-        pld     [r0, #0x20]
-        pld     [r0, #0x40]
-        pld     [r0, #0x60]
-
         // Start of the video data
         ldr     r0, =_binary_bad_apple_bin_start
 
@@ -110,13 +104,13 @@ tlb_loop:
         str     r7,  [r8, #OFFSET_GPFSEL0 + 8]
         str     r12, [r8, #OFFSET_GPCLR0]
 
+        // load the first byte to be output
+        ldrb    r10, [r0], #1
+
 load_loop:
 
-        // preload next cache line
-        pld     [r0, #0x20]
-
-        // load the next word to be output
-        ldrb    r10, [r0], #1
+        // pre-load the next byte to be output
+        ldrb    r1, [r0], #1
 
         // map the data to the appropriate GPIO bits
         mov     r11, r10, LSL #D0_BASE
@@ -154,6 +148,8 @@ tube_access:
         str     r7,  [r8, #OFFSET_GPFSEL0 + 8]
         str     r12, [r8, #OFFSET_GPCLR0]
 
+        // transfer over the pre-loaded value
+        mov     r10, r1
         b       load_loop
 
 // Some constants for controlling the data bus
