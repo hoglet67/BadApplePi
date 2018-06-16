@@ -125,6 +125,9 @@ rd_wait_for_clk_high:
    ld     r7, GPLEV0_offset(r8)
    btst   r7, CLK
    beq    rd_wait_for_clk_high
+   ld     r7, GPLEV0_offset(r8)
+   btst   r7, CLK
+   beq    rd_wait_for_clk_high
 
    btst   r7, nTUBE
    bne    not_tube_access
