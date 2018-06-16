@@ -3,32 +3,27 @@
 # exit on error
 set -e
 
-NAME=PiTubeDirect_$(date +"%Y%m%d_%H%M")_$USER
+NAME=BadApplePi_$(date +"%Y%m%d_%H%M")_$USER
 
 DIR=releases/${NAME}
-mkdir -p ${DIR}/debug
+mkdir -p ${DIR}
 
-for MODEL in rpi3 rpi2 rpi
+for MODEL in rpi
 do    
     # compile normal kernel
     ./clobber.sh
-    ./configure_${MODEL}.sh
-    make -B -j
-    mv kernel*.img ${DIR}
-    # compile debug kernel
-    ./clobber.sh
     ./configure_${MODEL}.sh -DDEBUG=1
     make -B -j
-    mv kernel*.img ${DIR}/debug
+    mv kernel*.img ${DIR}
 done
 
 cp -a firmware/* ${DIR}
 
 # Create a simple README.txt file
 cat >${DIR}/README.txt <<EOF
-PiTubeDirect
+Bad Apple Pi
 
-(c) 2017 David Banks (hoglet), Dominic Plunkett (dp11), Ed Spittles (BigEd) and other contributors
+(c) 2018 Chris Morley (cmorley) and David Banks (hoglet)
 
   git version: $(grep GITVERSION gitversion.h  | cut -d\" -f2)
 build version: ${NAME}

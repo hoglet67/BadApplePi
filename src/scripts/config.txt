@@ -1,4 +1,4 @@
-# config.txt for PiTubeDirect (https://github.com/hoglet67/PiTubeDirect)
+# config.txt for BadApplePi (https://github.com/hoglet67/BadApplePi)
 #
 # default options 
 core_freq=400
