@@ -10,6 +10,7 @@
 #include "performance.h"
 #include "info.h"
 #include "rpi-gpio.h"
+#include "tubevc.h"
 
 extern const char _binary_bad_apple_bin_start;
 extern const char _binary_bad_apple_bin_end;
@@ -35,7 +36,7 @@ static perf_counters_t pct;
 
 void init_emulator() {
    _disable_interrupts();
-   
+
    LOG_DEBUG("Bad Apple Pi\r\n");
 
    LOG_DEBUG("Start: %8p\r\n", &_binary_bad_apple_bin_start);
@@ -49,10 +50,12 @@ void init_emulator() {
          printf("\r\n");
       }
    }
-   tube(&_binary_bad_apple_bin_start, &_binary_bad_apple_bin_end, &pct);
-
-   LOG_DEBUG("Halted\r\n");
    
+//   tube(&_binary_bad_apple_bin_start, &_binary_bad_apple_bin_end, &pct);
+
+   LOG_DEBUG("Running Video Code Bad Apple\r\n");
+   LOG_DEBUG("ARM now halted\r\n");
+
    while (1);
 }
 
@@ -71,11 +74,11 @@ void run_core() {
    RPI_AuxMiniUartWrite('\r');
    RPI_AuxMiniUartWrite('\n');
 #endif
-   
+
    enable_MMU_and_IDCaches();
    _enable_unaligned_access();
 
-#ifdef DEBUG   
+#ifdef DEBUG
    LOG_DEBUG("emulator running on core %d\r\n", i);
 #endif
 
@@ -92,11 +95,11 @@ void init_hardware()
 {
 
   // early 26pin pins have a slightly different pin out
-  
+
   switch (get_revision())
   {
      case 2 :
-     case 3 :   
+     case 3 :
           // Write 1 to the LED init nibble in the Function Select GPIO
           // peripheral register to enable LED pin as an output
           RPI_GpioBase-> GPFSEL[1] |= 1<<18;
@@ -107,21 +110,21 @@ void init_hardware()
           RPI_SetGpioPinFunction(TEST_PIN_26PIN, FS_OUTPUT);
           test_pin = TEST_PIN_26PIN;
         break;
-     
-         
+
+
      default :
 
           host_addr_bus = (A2_PIN_40PIN << 16) | (A1_PIN_40PIN << 8) | (A0_PIN_40PIN); // address bus GPIO mapping
           RPI_SetGpioPinFunction(A2_PIN_40PIN, FS_INPUT);
           RPI_SetGpioPinFunction(A1_PIN_40PIN, FS_INPUT);
-          RPI_SetGpioPinFunction(A0_PIN_40PIN, FS_INPUT); 
+          RPI_SetGpioPinFunction(A0_PIN_40PIN, FS_INPUT);
           RPI_SetGpioPinFunction(TEST_PIN_40PIN, FS_OUTPUT);
           RPI_SetGpioPinFunction(TEST2_PIN, FS_OUTPUT);
           RPI_SetGpioPinFunction(TEST3_PIN, FS_OUTPUT);
-          test_pin = TEST_PIN_40PIN;         
-       break;   
+          test_pin = TEST_PIN_40PIN;
+       break;
   }
-  
+
   switch (get_revision())
   {
      case 2 :
@@ -138,11 +141,11 @@ void init_hardware()
          break;
      default :
                // Write 1 to the LED init nibble in the Function Select GPIO
-          // peripheral register to enable LED pin as an output  
+          // peripheral register to enable LED pin as an output
           RPI_GpioBase-> GPFSEL[4] |= 1<<21;
           led_type = 1;
          break;
-  }        
+  }
 
   // Configure our pins as inputs
   RPI_SetGpioPinFunction(D7_PIN, FS_INPUT);
@@ -167,7 +170,7 @@ void init_hardware()
   RPI_SetGpioPinFunction(RNW_PIN, FS_INPUT);
 
   // Initialize performance counters
-#if defined(RPI2) || defined(RPI3) 
+#if defined(RPI2) || defined(RPI3)
    pct.num_counters = 6;
    pct.type[0] = PERF_TYPE_L1I_CACHE;
    pct.type[1] = PERF_TYPE_L1I_CACHE_REFILL;
@@ -188,14 +191,38 @@ void init_hardware()
    pct.counter[0] = 0;
    pct.counter[1] = 0;
 #endif
-  
+
   // Initialise the info system with cached values (as we break the GPU property interface)
   init_info();
 
 #ifdef DEBUG
   dump_useful_info();
 #endif
-  
+
+}
+
+void start_vc()
+{
+   int func,r0,r1, r2,r3,r4,r5;
+   int tube_delay = 0;
+   func = (int) &tubevc_asm[0];
+   r0   = (int) &_binary_bad_apple_bin_start;
+   r1   = (int) &_binary_bad_apple_bin_end;
+   r2   = tube_delay;
+   r3   = 1 << test_pin;
+   r4   = 0;
+   r5   = 0;
+   LOG_DEBUG("Staring VC ULA\r\n");
+   LOG_DEBUG("VidCore code = %08x\r\n", func);
+   LOG_DEBUG("VidCore   r0 = %08x\r\n", r0);
+   LOG_DEBUG("VidCore   r1 = %08x\r\n", r1);
+   LOG_DEBUG("VidCore   r2 = %08x\r\n", r2);
+   LOG_DEBUG("VidCore   r3 = %08x\r\n", r3);
+   LOG_DEBUG("VidCore   r4 = %08x\r\n", r4);
+   LOG_DEBUG("VidCore   r5 = %08x\r\n", r5);
+   RPI_PropertyInit();
+   RPI_PropertyAddTag(TAG_EXECUTE_CODE,func,r0,r1,r2,r3,r4,r5);
+   RPI_PropertyProcessNoCheck();
 }
 
 void kernel_main(unsigned int r0, unsigned int r1, unsigned int atags)
@@ -205,7 +232,8 @@ void kernel_main(unsigned int r0, unsigned int r1, unsigned int atags)
    enable_MMU_and_IDCaches();
    _enable_unaligned_access();
    init_hardware();
-   
+   start_vc();
+
 #ifdef BENCHMARK
   // Run a short set of CPU and Memory benchmarks
   benchmark();

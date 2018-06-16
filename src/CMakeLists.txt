@@ -84,6 +84,8 @@ file( GLOB core_files
     logging.h
     utils.c
     utils.h
+    tubevc.c
+    tubevc.h
 )
 
 if( ${DEBUG} )
