@@ -144,12 +144,6 @@ void init_hardware()
          break;
   }        
 
-  for (int i = 0; i < 3; i++) {
-     gpfsel_data_idle[i] = (uint32_t) RPI_GpioBase->GPFSEL[i];
-     gpfsel_data_driving[i] = gpfsel_data_idle[i] | magic[i];
-     printf("%d %010o %010o\r\n", i, (unsigned int) gpfsel_data_idle[i], (unsigned int) gpfsel_data_driving[i]);
-  }
-  
   // Configure our pins as inputs
   RPI_SetGpioPinFunction(D7_PIN, FS_INPUT);
   RPI_SetGpioPinFunction(D6_PIN, FS_INPUT);
@@ -159,6 +153,13 @@ void init_hardware()
   RPI_SetGpioPinFunction(D2_PIN, FS_INPUT);
   RPI_SetGpioPinFunction(D1_PIN, FS_INPUT);
   RPI_SetGpioPinFunction(D0_PIN, FS_INPUT);
+  RPI_SetGpioPinFunction(TEST_PIN, FS_OUTPUT);
+
+  for (int i = 0; i < 3; i++) {
+     gpfsel_data_idle[i] = (uint32_t) RPI_GpioBase->GPFSEL[i];
+     gpfsel_data_driving[i] = gpfsel_data_idle[i] | magic[i];
+     printf("%d %010o %010o\r\n", i, (unsigned int) gpfsel_data_idle[i], (unsigned int) gpfsel_data_driving[i]);
+  }
 
   RPI_SetGpioPinFunction(PHI2_PIN, FS_INPUT);
   RPI_SetGpioPinFunction(NTUBE_PIN, FS_INPUT);

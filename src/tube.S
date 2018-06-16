@@ -107,6 +107,8 @@ tlb_loop:
         // load the first byte to be output
         ldrb    r10, [r0], #1
 
+        mov     lr, #TEST_MASK
+   
 load_loop:
 
         // pre-load the next byte to be output
@@ -117,8 +119,6 @@ load_loop:
         orr     r11, r10, LSL #D4_BASE-4
         and     r10, r11, r12
         str     r10, [r8, #OFFSET_GPSET0]
-
-        // WAIT_FOR_PHI2_LOW
 
 tube_loop:
         WAIT_FOR_PHI2_HIGH
@@ -139,13 +139,15 @@ tube_access:
         str     r2, [r8, #OFFSET_GPFSEL0 + 0]
         str     r3, [r8, #OFFSET_GPFSEL0 + 4]
         str     r4, [r8, #OFFSET_GPFSEL0 + 8]
+        str     lr, [r8, #OFFSET_GPSET0]
 
         WAIT_FOR_PHI2_LOW
 
         // stop driving the data bus
-        str     r5,  [r8, #OFFSET_GPFSEL0 + 0]
-        str     r6,  [r8, #OFFSET_GPFSEL0 + 4]
+        str     lr,  [r8, #OFFSET_GPCLR0]
         str     r7,  [r8, #OFFSET_GPFSEL0 + 8]
+        str     r6,  [r8, #OFFSET_GPFSEL0 + 4]
+        str     r5,  [r8, #OFFSET_GPFSEL0 + 0]
         str     r12, [r8, #OFFSET_GPCLR0]
 
         // transfer over the pre-loaded value
