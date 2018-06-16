@@ -74,6 +74,15 @@ restart:
         pop     {r0-r3}
 #endif
 
+        // Warm up the TLB
+        ldr     r0, =_binary_bad_apple_bin_start
+        ldr     r1, =_binary_bad_apple_bin_end
+tlb_loop:
+        ldr     r2, [r0]
+        add     r0, r0, #0x00100000
+        cmp     r0, r1
+        blt     tlb_loop
+
         // Load constants
         ldr     r0, =(gpfsel_data_driving)
         ldr     r2, [r0]
@@ -86,14 +95,6 @@ restart:
         ldr     r8, =GPBASE
         mov     r12, #D30_MASK
         orr     r12, #D74_MASK
-
-        // Warm up the TLB
-        ldr     r0, =_binary_bad_apple_bin_start
-tlb_loop:
-        ldr     r1, [r0]
-        add     r0, r0, #0x00100000
-        cmp     r0, #0x04000000
-        blt     tlb_loop
 
         // Start of the video data
         ldr     r0, =_binary_bad_apple_bin_start
@@ -108,7 +109,7 @@ tlb_loop:
         ldrb    r10, [r0], #1
 
         mov     lr, #TEST_MASK
-   
+
 load_loop:
 
         // pre-load the next byte to be output
@@ -167,6 +168,41 @@ gpfsel_data_driving:
 
 pct:
         .word 0
+
+
+
+lock_page_table:
+    // clean and invalidate the entire data cache (page 3-74)
+    mov         r0, #0
+    mcr         p15, 0, r0, c7, c14, 0
+
+    // data synchronization barrier to ensure all outstanding memory transactions are complete
+    mov         r0, #0
+    mcr         p15, 0, r0, c7, c10, 4
+
+    // enable d-cache way 0, lock ways 1, 2, 3 (page 3-89)
+    mov         r0, #0xfffffffe
+    mcr         p15, 0, r0, c9, c0, 0
+
+    // touch the first 256 page table entries (256MB)
+    ldr        r0, =PageTable
+    mov        r1, #0x100
+lock_loop:
+    ldr        r2, [r0], #4
+    add        r3, r3, r2
+    subs       r1, r1, #1
+    bne        lock_loop
+
+    // data synchronization barrier to ensure all outstanding memory transactions are complete
+    mov        r0, #0
+    mcr        p15, 0, r0, c7, c10, 4
+
+    // lock d-cache way 0, enable ways 1, 2, 3 (page 3-89)
+    mov        r0, #0xfffffff1
+    mcr        p15, 0, r0, c9, c0, 0
+
+    mov        pc, lr
+
 
 .data
 .global _binary_bad_apple_bin_start
